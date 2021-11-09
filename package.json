@@ -11,5 +11,8 @@
   },
   "keywords": [],
   "author": "BMO <bmo@skypress.io>",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "url": "git+https://github.com/SkyPressATX/flow.git"
+  }
 }
