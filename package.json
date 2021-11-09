@@ -7,7 +7,7 @@
   "files": ["dist"],
   "scripts": {
   "build": "tsc",
-  "prepare": "npm run buld"
+  "prepare": "npm run build"
   },
   "keywords": [],
   "author": "BMO <bmo@skypress.io>",
