@@ -1,5 +1,5 @@
 import { Flow } from './flow';
-import { IFlow, IFlowData, IFlowError } from '.';
+import { IFlow, IFlowData } from '.';
 
 describe('Flow', () => {
   const stub = { test: 'data' };
