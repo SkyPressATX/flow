@@ -5,7 +5,7 @@ describe('Flow', () => {
   const stub = { test: 'data' };
   let flow: IFlow;
   beforeEach(() => {
-    flow = new Flow(stub);
+    flow = new Flow();
   });
 
   afterEach(() => jest.resetAllMocks());
@@ -17,7 +17,7 @@ describe('Flow', () => {
     flow.before(() => ({ test: 'dog' }));
     flow.exec((params) => ({ result: params.test }));
 
-    const data = await flow.trigger();
+    const data = await flow.trigger(stub);
 
     expect(data).toEqual({ result: 'dog' });
   });
@@ -42,6 +42,6 @@ describe('Flow', () => {
       expect(data).toEqual({ test: 'mouse' });
     });
 
-    await flow.trigger();
+    await flow.trigger(stub);
   });
 });
