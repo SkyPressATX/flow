@@ -1,5 +1,5 @@
 import { Flow } from './flow';
-import { IFlow } from '.';
+import { IFlow, IFlowData, IFlowError } from '.';
 
 describe('Flow', () => {
   const stub = { test: 'data' };
@@ -43,5 +43,29 @@ describe('Flow', () => {
     });
 
     await flow.trigger(stub);
+  });
+
+  it('should not mutate the original request object', async () => {
+    flow.exec(() => ({ test: 'cow' }));
+    flow.after(({ req, data }: IFlowData) => {
+      req.test = data.test;
+      return data;
+    });
+    await flow
+      .trigger({ test: 'mouse' })
+      .catch((error) => expect(error).toBeInstanceOf(TypeError));
+  });
+
+  it('should respect the return value', async () => {
+    flow.exec(() => 'cat');
+    const result = await flow.trigger<string>('dog');
+    expect(typeof result).toEqual('string');
+    expect(result).toEqual('cat');
+  });
+
+  it.skip('should throw type error on return', async () => {
+    flow.exec(() => 5);
+    const result: string = await flow.trigger<string>('');
+    expect(typeof result).toEqual('string');
   });
 });

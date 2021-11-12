@@ -1,21 +1,20 @@
 import {
   FlowAfterCb,
   FlowBeforeCb,
-  FlowErr,
-  FlowStop,
+  FlowErrCb,
   IFlow,
   IFlowData,
-} from ".";
+  IFlowError,
+} from '.';
 
 export class Flow implements IFlow {
   private afterFilters: FlowAfterCb[] = [];
   private beforeFilters: FlowBeforeCb[] = [];
   private doneActions: FlowAfterCb[] = [];
   private validFilters: FlowBeforeCb[] = [];
+  private errCb: FlowErrCb[] = [];
 
-  private errCb!: FlowErr;
   private execCb!: FlowBeforeCb;
-  private stopCb!: FlowBeforeCb;
 
   private ns!: string;
 
@@ -27,8 +26,8 @@ export class Flow implements IFlow {
     this.afterFilters.push(...filters);
   }
 
-  error(cb: FlowErr): void {
-    this.errCb = cb;
+  error(...actions: FlowErrCb[]): void {
+    this.errCb.push(...actions);
   }
 
   exec(cb: FlowBeforeCb): void {
@@ -39,10 +38,6 @@ export class Flow implements IFlow {
     this.doneActions.push(...actions);
   }
 
-  stop(cb: FlowBeforeCb): void {
-    this.stopCb = cb;
-  }
-
   validate(...valids: FlowBeforeCb[]): void {
     this.validFilters.push(...valids);
   }
@@ -51,65 +46,81 @@ export class Flow implements IFlow {
     this.ns = namespace;
   }
 
-  async trigger<R>(req: any): Promise<R | void> {
-    let params = { ...req }; // Keep req immutable
+  async trigger<R>(req: unknown): Promise<R> {
+    Object.freeze(req);
     if (this.ns) console.log(`${this.ns}::Request`, req);
 
     try {
       // Run validators
-      for (let i = 0; i < this.validFilters.length; i++) {
-        if (this.ns) console.log(`${this.ns}::Validate`, params);
-        await this.validFilters[i](params);
-      }
+      await this.runValidators(req);
 
-      // Before Filters
-      for (let i = 0; i < this.beforeFilters.length; i++) {
-        params = await this.beforeFilters[i](params);
-        if (this.ns) console.log(`${this.ns}::Before`, params);
-      }
+      // Before Exec Filters
+      const params = await this.runBeforeFilters(req);
 
       // Execute Function
-      let data: any = null;
-      if (this.execCb) {
-        data = await this.execCb(params);
-        if (this.ns) console.log(`${this.ns}::Exec`, data);
+      const result = await this.runExec(params);
 
-        // After Filters
-        for (let i = 0; i < this.afterFilters.length; i++) {
-          data = await this.afterFilters[i]({
-            data,
-            params,
-            req,
-          });
-          if (this.ns) console.log(`${this.ns}::After`, data);
-        }
-      }
+      // After Exec Filters
+      const data: R = await this.runAfterFilters<R>(req, params, result);
 
       // Do Done Actions
-      const payload: IFlowData = { data, params, req };
-      this.doneActions.forEach((action) => {
-        if (this.ns) console.log(`${this.ns}::Done`, payload);
-        action(payload);
-      });
+      this.runDoneActions({ data, params, req });
 
-      return data as R;
-    } catch (error: any) {
-      if (error instanceof FlowStop) {
-        if (this.ns) console.warn("FlowStop", this.ns);
-        this.stopCb(params);
-      } else {
-        if (this.errCb) {
-          if (this.ns) console.error(this.ns, error.message);
-          this.errCb({
-            error,
-            params,
-            req,
-          });
-        } else {
-          console.error(this.ns ?? "Flow", error.message);
-          throw error;
-        }
-      }
+      return data;
+    } catch (error) {
+      if (this.ns) console.error(`${this.ns}::Error`, error.message);
+      if (this.errCb) this.runErrorActions({ error, req });
+      throw error;
     }
+  }
+
+  private async runValidators(params: unknown): Promise<void> {
+    for (let i = 0; i < this.validFilters.length; i++) {
+      if (this.ns) console.log(`${this.ns}::Validate`, params);
+      await this.validFilters[i](params);
+    }
+  }
+
+  private async runBeforeFilters(params: unknown): Promise<unknown> {
+    for (let i = 0; i < this.beforeFilters.length; i++) {
+      params = await this.beforeFilters[i](params);
+      if (this.ns) console.log(`${this.ns}::Before`, params);
+    }
+
+    return params;
+  }
+
+  private async runExec(params: unknown): Promise<unknown> {
+    let data;
+    if (this.execCb) {
+      data = await this.execCb(params);
+      if (this.ns) console.log(`${this.ns}::Exec`, data);
+    }
+
+    return data;
+  }
+
+  private async runAfterFilters<R>(req, params, data: unknown): Promise<R> {
+    for (let i = 0; i < this.afterFilters.length; i++) {
+      data = await this.afterFilters[i]({
+        data,
+        params,
+        req,
+      });
+      if (this.ns) console.log(`${this.ns}::After`, data);
+    }
+
+    return data as R;
+  }
+
+  private runDoneActions(payload: IFlowData): void {
+    this.doneActions.forEach((action) => {
+      if (this.ns) console.log(`${this.ns}::Done`, payload);
+      action(payload);
+    });
+  }
+
+  private runErrorActions(err: IFlowError): void {
+    this.errCb.forEach((action) => action(err));
   }
 }
