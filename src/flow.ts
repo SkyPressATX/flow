@@ -5,7 +5,7 @@ import {
   FlowStop,
   IFlow,
   IFlowData,
-} from '.';
+} from ".";
 
 export class Flow implements IFlow {
   private afterFilters: FlowAfterCb[] = [];
@@ -18,8 +18,6 @@ export class Flow implements IFlow {
   private stopCb!: FlowBeforeCb;
 
   private ns!: string;
-
-  constructor(private req: any) {}
 
   before(...filters: FlowBeforeCb[]): void {
     this.beforeFilters.push(...filters);
@@ -53,9 +51,9 @@ export class Flow implements IFlow {
     this.ns = namespace;
   }
 
-  async trigger(): Promise<any> {
-    let params = { ...this.req }; // Keep req immutable
-    if (this.ns) console.log(`${this.ns}::Request`, this.req);
+  async trigger<R>(req: any): Promise<R | void> {
+    let params = { ...req }; // Keep req immutable
+    if (this.ns) console.log(`${this.ns}::Request`, req);
 
     try {
       // Run validators
@@ -81,23 +79,23 @@ export class Flow implements IFlow {
           data = await this.afterFilters[i]({
             data,
             params,
-            req: this.req,
+            req,
           });
           if (this.ns) console.log(`${this.ns}::After`, data);
         }
       }
 
       // Do Done Actions
+      const payload: IFlowData = { data, params, req };
       this.doneActions.forEach((action) => {
-        const payload: IFlowData = { data, params, req: this.req };
         if (this.ns) console.log(`${this.ns}::Done`, payload);
         action(payload);
       });
 
-      return data;
+      return data as R;
     } catch (error: any) {
       if (error instanceof FlowStop) {
-        if (this.ns) console.warn('FlowStop', this.ns);
+        if (this.ns) console.warn("FlowStop", this.ns);
         this.stopCb(params);
       } else {
         if (this.errCb) {
@@ -105,10 +103,10 @@ export class Flow implements IFlow {
           this.errCb({
             error,
             params,
-            req: this.req,
+            req,
           });
         } else {
-          console.error(this.ns ?? 'Flow', error.message);
+          console.error(this.ns ?? "Flow", error.message);
           throw error;
         }
       }

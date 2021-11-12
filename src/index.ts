@@ -16,7 +16,7 @@ export interface IFlow {
   error: (cb: FlowErr) => void;
   exec: (cb: FlowBeforeCb) => void;
   log: (namespace: string) => void;
-  trigger: () => Promise<any>;
+  trigger: (params: any) => Promise<any>;
   validate: (...valids: FlowBeforeCb[]) => void | Promise<void>;
 }
 
