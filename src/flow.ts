@@ -81,7 +81,8 @@ export class Flow implements IFlow {
     }
   }
 
-  private async runBeforeFilters(params: unknown): Promise<unknown> {
+  private async runBeforeFilters(req: unknown): Promise<unknown> {
+    let params = { ...(req as any) };
     for (let i = 0; i < this.beforeFilters.length; i++) {
       params = await this.beforeFilters[i](params);
       if (this.ns) console.log(`${this.ns}::Before`, params);
